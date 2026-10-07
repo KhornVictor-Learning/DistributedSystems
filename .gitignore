@@ -1,0 +1,63 @@
+# ==============================================================================
+# .gitignore for Distributed Systems Course
+# ==============================================================================
+
+# Heavy Presentation & Document Files (Slides and Lab PDFs/PPTXs)
+*.pdf
+*.pptx
+*.ppt
+*.key
+*.doc
+*.docx
+*.xls
+*.xlsx
+
+# Temporary extraction files
+*.pdf.txt
+*.tmp
+
+# C/C++ Compiled Binaries & Object Files
+*.o
+*.obj
+*.exe
+*.out
+*.bin
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Debugging Artifacts & Dumps
+*.dSYM/
+*.gdb_history
+core
+core.*
+vgcore.*
+
+# Lab Program Generated Files (e.g., TEST file from parent-child.c)
+TEST
+
+# Large Archives & Compressed Files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Operating System Files
+Thumbs.db
+desktop.ini
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE / Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
