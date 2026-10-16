@@ -101,7 +101,7 @@ The degree to which new resource-sharing services can be added and made accessib
 
 ### 3. Security
 Protecting resources transferred across insecure open networks against threats. Security rests on three core pillars:
-- **Confidentiality**: Ensuring data is protected against disclosure to unauthorized parties (via encryption).
+	- **Confidentiality**: Ensuring data is protected against disclosure to unauthorized parties (via encryption).
 - **Integrity**: Ensuring data is protected against unauthorized alteration or corruption (via cryptographic hashes and digital signatures).
 - **Availability**: Ensuring authorized users can access resources without denial-of-service interference.
 
