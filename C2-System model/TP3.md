@@ -30,18 +30,23 @@ A **Remote Desktop** system implements a **thin-client architectural pattern** w
 - The **Remote Host (Server)** executes the operating system, business logic, applications, and graphical desktop environment.
 - The **Local Machine (Client)** acts purely as an input/output terminal. It captures human interaction events (keystrokes, mouse coordinates, clicks, touch events) and transmits them across the network to the server. In return, the server captures visual changes in its graphical display framebuffer and streams them back to the client for rendering.
 
-```
-+-----------------------------------------------------------------------------------------+
-|                                 REMOTE DESKTOP PIPELINE                                 |
-+-----------------------------------------------------------------------------------------+
+```mermaid
+flowchart LR
+    subgraph Client["Local Client (Thin Client)"]
+        direction TB
+        Input["User Inputs: Keyboard & Mouse Coordinates"]
+        Display["Screen Display (Decoder)"]
+    end
 
-      [ LOCAL CLIENT ]                                          [ REMOTE HOST ]
-  +----------------------+                                  +----------------------+
-  |  - Keyboard Input    |  ---- [ Input Events (TCP/UDP) ] ----> |  - Operating System  |
-  |  - Mouse Coordinates |                                  |  - Applications      |
-  |  - Screen Display    |  <-- [ Framebuffer / Primitives ] ---- |  - Graphics Engine   |
-  |    (Decoder)         |                                  |    (Encoder)         |
-  +----------------------+                                  +----------------------+
+    subgraph Host["Remote Host (Server)"]
+        direction TB
+        OS["Operating System & Applications"]
+        Gfx["Graphics Engine (Encoder)"]
+    end
+
+    Input -->|"Input Events (TCP/UDP)"| OS
+    OS --> Gfx
+    Gfx -->|"Framebuffer Updates / Drawing Primitives"| Display
 ```
 
 ### 2. Concrete Examples & Protocol Comparisons
@@ -99,14 +104,33 @@ A **semaphore** is a fundamental synchronization construct proposed by Edsger Di
     - Binary semaphore `buffer_mutex` is initialized to $1$.
     This ensures that the audio buffer never overflows, never starves (underflows), and concurrent access to pointers is free of race conditions.
 
-```
-       [ Producer Thread ]                               [ Consumer Thread ]
-                |                                                 |
-       wait(empty_slots)                                  wait(full_slots)
-       wait(buffer_mutex)                                 wait(buffer_mutex)
-      [ Write Audio Chunk ]                             [ Read Audio Chunk ]
-      signal(buffer_mutex)                               signal(buffer_mutex)
-       signal(full_slots)                                signal(empty_slots)
+```mermaid
+flowchart LR
+    subgraph Producer["Producer Thread (Audio Decoder)"]
+        direction TB
+        P1["wait(empty_slots)"] --> P2["wait(buffer_mutex)"]
+        P2 --> P3["Write Audio Chunk to Buffer"]
+        P3 --> P4["signal(buffer_mutex)"]
+        P4 --> P5["signal(full_slots)"]
+    end
+
+    subgraph Buffer["Shared Circular Buffer (Capacity N = 10)"]
+        direction TB
+        B["Protected by buffer_mutex"]
+    end
+
+    subgraph Consumer["Consumer Thread (Sound Card DAC Driver)"]
+        direction TB
+        C1["wait(full_slots)"] --> C2["wait(buffer_mutex)"]
+        C2 --> C3["Read Audio Chunk from Buffer"]
+        C3 --> C4["signal(buffer_mutex)"]
+        C4 --> C5["signal(empty_slots)"]
+    end
+
+    P3 -->|"Writes chunk"| Buffer
+    Buffer -->|"Reads chunk"| C3
+    P5 -.->|"Signals item available"| C1
+    C5 -.->|"Signals slot available"| P1
 ```
 
 ### 2. Semaphores in Database Management Systems (DBMS)
@@ -155,22 +179,28 @@ Cloud computing emerged in the late 2000s from the convergence of several revolu
 3. **Hyperscale Economies of Scale**: Multi-national providers (Amazon, Google, Microsoft) constructed warehouse-scale computing facilities near cheap renewable energy and hydro-cooling sources, driving down computational cost per unit.
 4. **Transition from CapEx to OpEx**: Businesses no longer needed to spend millions of dollars upfront buying physical servers that sat idle (*Capital Expenditure*); they transitioned to paying only for the exact computing hours consumed (*Operational Expenditure*).
 
-```
-               +-------------------------------------------------------+
-               |                   CLOUD SERVICE STACK                 |
-               +-------------------------------------------------------+
-               |  SaaS (Software as a Service)                         |
-               |  - End-user business applications                     |
-               |  - Examples: Google Workspace, Salesforce, Microsoft 365|
-               +-------------------------------------------------------+
-               |  PaaS (Platform as a Service)                         |
-               |  - Runtimes, managed databases, automated pipelines   |
-               |  - Examples: Heroku, AWS Elastic Beanstalk, Vercel    |
-               +-------------------------------------------------------+
-               |  IaaS (Infrastructure as a Service)                   |
-               |  - Virtual machines, block storage, VPC networks     |
-               |  - Examples: AWS EC2, GCP Compute Engine, Azure VMs   |
-               +-------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph SaaS["SaaS — Software as a Service"]
+        direction TB
+        S1["Focus: End-user business applications"]
+        S2["Examples: Google Workspace, Salesforce, Microsoft 365"]
+    end
+
+    subgraph PaaS["PaaS — Platform as a Service"]
+        direction TB
+        P1["Focus: Runtimes, managed databases, automated pipelines"]
+        P2["Examples: Heroku, AWS Elastic Beanstalk, Vercel"]
+    end
+
+    subgraph IaaS["IaaS — Infrastructure as a Service"]
+        direction TB
+        I1["Focus: Virtual machines, block storage, VPC networks"]
+        I2["Examples: AWS EC2, GCP Compute Engine, Azure VMs"]
+    end
+
+    S2 -->|"Runs on top of"| P1
+    P2 -->|"Deployed on top of"| I1
 ```
 
 #### B. Core Essential Characteristics (NIST Definition)
@@ -215,25 +245,24 @@ Cloud computing emerged in the late 2000s from the convergence of several revolu
 
 **BitTorrent** is a decentralized, peer-to-peer (P2P) file distribution protocol designed by Bram Cohen (2001) that solves the classic "slashdot effect" (where a sudden influx of client requests overwhelms and crashes a centralized file server).
 
-```
-                      +------------------------------------------+
-                      |         BITTORRENT SWARM TOPOLOGY        |
-                      +------------------------------------------+
+```mermaid
+flowchart TD
+    Tracker["Tracker / Kademlia DHT"]
 
-                                     [ Tracker / DHT ]
-                                     /       |       \
-                         (Peer List)/        |        \(Peer List)
-                                   v         v         v
-                              +--------+  Pieces   +--------+
-                              | Peer A | <=======> | Peer B |
-                              | (Seed) |           |(Leecher|
-                              +--------+           +--------+
-                                  ^ \                 / ^
-                                  |  \     Pieces    /  |
-                           Pieces |   ===> +---+ <===   | Pieces
-                                  |        |Peer|       |
-                                  +======> | C | <======+
-                                           +---+
+    subgraph Swarm["BitTorrent Swarm"]
+        direction TB
+        PeerA["Peer A (Seeder — 100% Complete)"]
+        PeerB["Peer B (Leecher — Downloading)"]
+        PeerC["Peer C (Leecher — Downloading)"]
+
+        PeerA <-->|"Bidirectional Piece Exchange"| PeerB
+        PeerB <-->|"Bidirectional Piece Exchange"| PeerC
+        PeerA <-->|"Bidirectional Piece Exchange"| PeerC
+    end
+
+    Tracker -.->|"Peer List (HTTP/UDP Announce)"| PeerA
+    Tracker -.->|"Peer List (HTTP/UDP Announce)"| PeerB
+    Tracker -.->|"Peer List (DHT Node Routing)"| PeerC
 ```
 
 ### Complete End-to-End Operational Lifecycle
@@ -285,15 +314,34 @@ Once a peer downloads 100% of the pieces, it transitions from a **Leecher** to a
 
 ## Question 5: Advantages of Peer-to-Peer over Client-Server Architecture
 
-```
-       CLIENT-SERVER ARCHITECTURE                     PEER-TO-PEER (P2P) ARCHITECTURE
-       
-           [ Central Server ]                                (Peer) <---> (Peer)
-             /      |     \                                   ^  \       /  ^
-            /       |      \                                  |   \     /   |
-           v        v       v                                 v    \   /    v
-       [Client] [Client] [Client]                          (Peer) <-> (Peer)
-     (Clients drain server bandwidth)                  (Peers contribute bandwidth)
+```mermaid
+flowchart LR
+    subgraph CS["Client-Server Architecture"]
+        direction TB
+        Server["Central Server (Single Point of Failure / Bottleneck)"]
+        C1["Client 1"]
+        C2["Client 2"]
+        C3["Client 3"]
+
+        Server -->|"Server bandwidth drained"| C1
+        Server -->|"Server bandwidth drained"| C2
+        Server -->|"Server bandwidth drained"| C3
+    end
+
+    subgraph P2P["Peer-to-Peer (P2P) Architecture"]
+        direction TB
+        P1["Peer 1"]
+        P2["Peer 2"]
+        P3["Peer 3"]
+        P4["Peer 4"]
+
+        P1 <-->|"Contributes & downloads"| P2
+        P2 <-->|"Contributes & downloads"| P3
+        P3 <-->|"Contributes & downloads"| P4
+        P4 <-->|"Contributes & downloads"| P1
+        P1 <-->|"Contributes & downloads"| P3
+        P2 <-->|"Contributes & downloads"| P4
+    end
 ```
 
 | Dimension | Client-Server Architecture | Peer-to-Peer (P2P) Architecture | Real-World Impact |
@@ -314,16 +362,15 @@ While Client-Server requires managing central server loads, the architectural, a
 
 ### In-Depth Complexity Breakdown
 
-```
-+-----------------------------------------------------------------------------------------+
-|                              WHY P2P IS DRASICALLY MORE COMPLEX                         |
-+-----------------------------------------------------------------------------------------+
-| 1. Dynamic Churn               | Nodes connect, disconnect, and crash without warning.  |
-| 2. Distributed Resource Lookup | Locating data requires O(log N) DHTs instead of DNS.   |
-| 3. Zero-Trust Security         | Must prevent Sybil, Eclipse, and Poisoning attacks.    |
-| 4. Distributed Consensus       | No central clock or single coordinator for state sync.  |
-| 5. NAT & Firewall Traversal    | Consumer home routers block unsolicited inbound traffic.|
-+-----------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    Root["Why P2P Architecture is Drastically More Complex"]
+
+    Root --> C1["1. Dynamic Churn: Nodes connect, disconnect, and crash without warning"]
+    Root --> C2["2. Distributed Resource Lookup: Locating data requires O(log N) DHTs instead of DNS"]
+    Root --> C3["3. Zero-Trust Security: Must defend against Sybil, Eclipse, and Poisoning attacks"]
+    Root --> C4["4. Distributed Consensus: No central coordinator or clock for state synchronization"]
+    Root --> C5["5. NAT & Firewall Traversal: Consumer routers block unsolicited inbound traffic"]
 ```
 
 #### 1. Dynamic Network Churn and Unreliable Nodes
@@ -357,19 +404,42 @@ While Client-Server requires managing central server loads, the architectural, a
 ### Short Answer:
 **No, "multiple servers" and a "computer cluster" are fundamentally different concepts.** A cluster is a specialized, tightly coupled subset of multiple servers engineered to act as a unified whole.
 
-```
-       MULTIPLE SERVERS (LOOSELY COUPLED)                 COMPUTER CLUSTER (TIGHTLY COUPLED)
-       
-  [ Web Server ]       [ Mail Server ]                +---------------------------------------+
-   (Tokyo, Japan)      (Frankfurt, DE)                |           [ SINGLE SYSTEM IMAGE ]     |
-         \                 /                          |  Node 1      Node 2      Node 3       |
-          \   (Public)    /                           |  [ CPU ]     [ CPU ]     [ CPU ]      |
-           [ INTERNET ]                               |     \           |           /         |
-          /                \                          |   ===[ Ultra-Fast Interconnect ]===   |
-         /                  \                         |   ===[ (100-400 Gbps InfiniBand) ]=   |
-  [ DB Server ]       [ Backup Server ]               |                 |                     |
-  (Ashburn, USA)      (Singapore)                     |       [ Clustered SAN / NAS ]         |
-                                                      +---------------------------------------+
+```mermaid
+flowchart LR
+    subgraph MultipleServers["Multiple Servers (Loosely Coupled)"]
+        direction TB
+        S1["Web Server (Tokyo, Japan)"]
+        S2["Mail Server (Frankfurt, Germany)"]
+        S3["Database Server (Ashburn, USA)"]
+        S4["Backup Server (Singapore)"]
+        WAN["Public Internet / WAN (High & Variable Latency)"]
+
+        S1 <--> WAN
+        S2 <--> WAN
+        S3 <--> WAN
+        S4 <--> WAN
+    end
+
+    subgraph Cluster["Computer Cluster (Tightly Coupled)"]
+        direction TB
+        SSI["Single System Image (SSI) Abstraction Layer"]
+
+        subgraph Nodes["Co-located Homogeneous Cluster Nodes"]
+            direction LR
+            N1["Node 1"]
+            N2["Node 2"]
+            N3["Node 3"]
+        end
+
+        Fabric["Ultra-Fast Interconnect (100-400 Gbps InfiniBand / RoCE)"]
+        Storage["Shared Clustered Storage (SAN / NAS / Lustre)"]
+
+        SSI --- N2
+        N1 <--> Fabric
+        N2 <--> Fabric
+        N3 <--> Fabric
+        Fabric <--> Storage
+    end
 ```
 
 ### Detailed Architectural Comparison
@@ -412,26 +482,53 @@ A **Proxy Server** is an intermediary network software service or appliance that
 4. The target server responds to the proxy.
 5. The proxy processes, inspects, and delivers the response back to the original client.
 
-```
-+-----------------------------------------------------------------------------------------+
-|                               FORWARD PROXY vs. REVERSE PROXY                           |
-+-----------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph ForwardProxyArch["FORWARD PROXY (Protects & Represents Clients)"]
+        direction LR
+        subgraph PrivateNet["Private Internal Network"]
+            direction TB
+            PC1["Client 1"]
+            PC2["Client 2"]
+            PC3["Client 3"]
+        end
 
-  FORWARD PROXY (Protects & Represents Clients)
-  [ Private Client 1 ] ---\
-  [ Private Client 2 ] ----> [ FORWARD PROXY ] === (Public Internet) ===> [ Destination Web ]
-  [ Private Client 3 ] ---/   - Filters traffic
-                              - Hides client IPs
-                              - Caches static data
+        FP["Forward Proxy (Squid / Zscaler)"]
+        WebDest["Destination Web Servers (Public Internet)"]
 
--------------------------------------------------------------------------------------------
+        PC1 --> FP
+        PC2 --> FP
+        PC3 --> FP
+        FP -->|"Egress Requests (Filters, Masks IPs, Caches)"| WebDest
+    end
 
-  REVERSE PROXY (Protects & Represents Backend Servers)
-                              [ REVERSE PROXY ] ===> [ Backend App Server 1 ]
-  [ Public Client A ] ---\     - Load Balancer  ===> [ Backend App Server 2 ]
-  [ Public Client B ] ------>  - SSL Termination===> [ Backend App Server 3 ]
-  [ Public Client C ] ---/     - DDoS Shield    ===> [ Database / Microservice]
-                               - Caching
+    subgraph ReverseProxyArch["REVERSE PROXY (Protects & Represents Backend Servers)"]
+        direction LR
+        subgraph PublicUsers["Public Internet Clients"]
+            direction TB
+            UA["Client A"]
+            UB["Client B"]
+            UC["Client C"]
+        end
+
+        RP["Reverse Proxy (Nginx / Cloudflare)"]
+
+        subgraph DataCenter["Internal Backend Infrastructure"]
+            direction TB
+            App1["Backend App Server 1"]
+            App2["Backend App Server 2"]
+            App3["Backend App Server 3"]
+            DB["Internal Databases & Microservices"]
+        end
+
+        UA --> RP
+        UB --> RP
+        UC --> RP
+        RP -->|"Load Balancing / SSL Offload / DDoS Shield"| App1
+        RP --> App2
+        RP --> App3
+        RP --> DB
+    end
 ```
 
 ---
